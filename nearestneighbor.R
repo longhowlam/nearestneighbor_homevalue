@@ -1,6 +1,9 @@
 library(dplyr)
 library(rsample)
 library(reticulate)
+library(ggmap)
+
+#################################################################################################
 
 postocdes_NL <- readRDS("postocdes_NL.RDs")
 jaap <- readRDS("JaapResults.RDs")
@@ -47,27 +50,30 @@ k_bepaling = data.frame(k=1:15, rsq)
 ggplot(k_bepaling, aes(k,rsq)) +
   geom_point(size=3) +
   geom_line(size=2, col="blue") +
-  labs(title="verschillende k in KNN, R-squared op test")
+  labs(title="verschillende k in KNN, R-squared op test") +
+  scale_x_continuous(breaks = 1:15)
 
 ggplot(test, aes(resid)) +geom_histogram(col="black")
 
-
-
-
-
-
-
-
-#from sklearn.neighbors import NearestNeighbors
+######## gebruik beste k om model te maken en uit te scoren op postcode data
 KNN_reg = import("sklearn.neighbors")$KNeighborsRegressor
-neigh = KNN_reg(n_neighbors = 3L)
+bestkmodel = KNN_reg(n_neighbors = 5L)
+bestkmodel$fit(X = train_matrix, y=prijs)
+NL_postcode = as.matrix(postocdes_NL[,8:9])
 
-X = matrix(runif(100), ncol=5)
-y = rnorm(20) +100
-neigh$fit(X,y)
+huispredicties = bestkmodel$predict(NL_postcode)
+postocdes_NL$predictie = huispredicties
 
-buren = neigh$kneighbors(X[1:5,])
-
-testdata = matrix(runif(20), ncol=5)
-
-neigh$predict(testdata)
+sample_huizen = postocdes_NL %>% 
+  sample_frac(0.3) %>% 
+  filter(Lat_Postcode6P > 52.3,
+         city == "Amsterdam") 
+ggmap(
+  get_googlemap(center = c(4.9036,52.3680), scale=2, zoom=12)
+) + 
+geom_point(
+  data=sample_huizen, aes(y=Lat_Postcode6P,x=Long_Postcode6P, color = predictie),
+  size = 0.9, alpha = 0.7
+) +
+scale_colour_gradientn(colours = colorRamps::green2red(19))
+  
