@@ -2,7 +2,7 @@ library(dplyr)
 library(rsample)
 library(reticulate)
 library(ggmap)
-
+library(feather)
 #################################################################################################
 
 postocdes_NL <- readRDS("postocdes_NL.RDs")
@@ -65,15 +65,35 @@ huispredicties = bestkmodel$predict(NL_postcode)
 postocdes_NL$predictie = huispredicties
 
 sample_huizen = postocdes_NL %>% 
-  sample_frac(0.3) %>% 
-  filter(Lat_Postcode6P > 52.3,
-         city == "Amsterdam") 
+   filter(
+     Lat_Postcode6P > 52.3,
+     city == "Amsterdam"
+    ) 
+
+sample_huizen = postocdes_NL %>% 
+  filter(
+    province == "Groningen"
+  ) 
+
+
+sample_huizen = postocdes_NL %>% 
+  filter(
+    city == "Baarn"
+  ) 
+
+amsterdam =  c(4.9036,52.3680)
+groningen = c(6.576000607, 53.2168049)
+baarn = c(5.26, 52.2107)
+52.2107187,5.2836563,16z
+
 ggmap(
-  get_googlemap(center = c(4.9036,52.3680), scale=2, zoom=12)
+  get_googlemap(center = baarn, scale=2, zoom=13)
 ) + 
 geom_point(
   data=sample_huizen, aes(y=Lat_Postcode6P,x=Long_Postcode6P, color = predictie),
-  size = 0.9, alpha = 0.7
+  size = 1.2, alpha = 0.6
 ) +
-scale_colour_gradientn(colours = colorRamps::green2red(19))
+scale_colour_gradientn(colours = colorRamps::green2red(20))
   
+
+feather::write_feather(postocdes_NL[, c(8,9,16)], "postcode_nl.feather")
