@@ -1,6 +1,6 @@
 #######################################################
 
-## Wat woningen modellen
+## Wat woningen analyzes
 
 #### libraries
 library(tidyverse)
@@ -12,7 +12,7 @@ library(plotly)
 library(h2o)
 
 
-### Lees transacties in
+### Lees woning transacties in
 transacties_2018 <- read_csv(
   "2018-woontransacties.csv",
   col_types = cols(
@@ -63,6 +63,7 @@ woningen = woningen %>%
 
 woningen = woningen %>% 
   mutate(
+    aantalkamers = `Aantal kamers`,
     PC2 = str_sub(Postcode,1,2),
     ouderdom = 2019 - Bouwjaar,
     woningBeschrijving = paste0(
@@ -76,13 +77,15 @@ woningen = woningen %>%
     ouderdom >= 0,
     Perceel < 750,
     Inhoud < 1000
-  )
+  ) %>% 
+  select(-`Aantal kamers`)
 
 ggplot(woningen, aes(ouderdom)) + 
   geom_histogram(col="black", binwidth = 1) +
   labs(title = "ouderdom in jaren")
 
-type = woningen %>% group_by(woningBeschrijving) %>%  summarise(n=n())
+Type = woningen %>% group_by(woningBeschrijving) %>%  summarise(n=n())
+
 
 ### check inhoud en perceel
 
@@ -94,7 +97,7 @@ ggplot(woningen, aes(Inhoud)) +
   geom_histogram(col="black", bins=70) +
   labs("Inhoud")
 
-ggplot(woningen, aes(`Aantal kamers`)) + 
+ggplot(woningen, aes(aantalkamers)) + 
   geom_histogram(col="black", bins=70) +
   labs("Inhoud")
 
@@ -108,7 +111,7 @@ woonModelData  = woningen %>%
     KoopConditie,
     ouderdom,
     Woonoppervlak,
-    `Aantal kamers`,
+    aantalkamers,
     Perceel,
     Inhoud,
     KoopConditie,
@@ -120,16 +123,17 @@ woonModelData  = woningen %>%
 out1 = lm(Transactieprijs ~ Woonoppervlak, data = woonModelData)
 summary(out1)
 
-out2 = lm(Transactieprijs ~ `Aantal kamers` , data = woonModelData)
+out2 = lm(Transactieprijs ~ aantalkamers , data = woonModelData)
 summary(out2)
 
-out2 = lm(Transactieprijs ~ `Aantal kamers` + Woonoppervlak, data = woonModelData)
+### nu negatief coefficient voor aantal kamers.....
+out2 = lm(Transactieprijs ~ aantalkamers + Woonoppervlak, data = woonModelData)
 summary(out2)
 
-out2 = lm(Transactieprijs ~ `Aantal kamers` * Woonoppervlak, data = woonModelData)
+out2 = lm(Transactieprijs ~ aantalkamers * Woonoppervlak, data = woonModelData)
 summary(out2)
 
-out2 = lm(Transactieprijs ~ PC2 + `Aantal kamers` * Woonoppervlak, data = woonModelData)
+out2 = lm(Transactieprijs ~ PC2 + aantalkamers* Woonoppervlak, data = woonModelData)
 summary(out2)
 
 outall = lm(Transactieprijs ~ ., data = woonModelData)
@@ -152,7 +156,7 @@ woonModelData2 = woonModelData
 woonModelData2$predictie = pred
 
 ggplot(woonModelData2, aes(Transactieprijs, predictie)) +
-  geom_point() + 
+  geom_point(alpha = 0.2) + 
   geom_smooth() +
   labs(title = "waargenomen prijs vs linear model voorspelde prijs")
 
@@ -250,17 +254,15 @@ rsq(TEST$Transactieprijs, TEST$predict)
 ### Voorspel mijn huis
 
 mijnhuis = data.frame(
-  PC2 = "10", 
+  PC2 = "16", 
   KoopConditie = "kosten koper", 
   ouderdom = 26,
-  Woonoppervlak = 113,
-  `Aantal kamers` = 5,
+  Woonoppervlak = 153,
+  aantalkamers = 5,
   Perceel = 50,
   Inhoud = 180,
   woningBeschrijving = "EengezinswoningTussenwoning" 
-)
-
-%>% 
+) %>% 
   as.h2o
 
 predict(outRF, mijnhuis)
