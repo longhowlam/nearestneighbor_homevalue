@@ -251,18 +251,52 @@ ggplot(TEST, aes(Transactieprijs, predict)) +
 rsq(TEST$Transactieprijs, TEST$predict)
 
 
-### Voorspel mijn huis
+### Voorspel waarde van mijn huis #######################
 
 mijnhuis = data.frame(
-  PC2 = "16", 
+  PC2 = "11", 
   KoopConditie = "kosten koper", 
-  ouderdom = 26,
-  Woonoppervlak = 153,
-  aantalkamers = 5,
-  Perceel = 50,
-  Inhoud = 180,
+  ouderdom = 8,
+  Woonoppervlak = 125,
+  aantalkamers = 6,
+  Perceel = 100,
+  Inhoud = 140,
   woningBeschrijving = "EengezinswoningTussenwoning" 
 ) %>% 
   as.h2o
 
 predict(outRF, mijnhuis)
+
+
+######## h2o auto ml #########################################
+
+out = h2o.automl(
+  x = 2:9,
+  y = 1,
+  training_frame  = TT[[1]],
+  validation_frame = TT[[2]],
+  max_runtime_secs = 180
+)
+
+## out is nu een zgn H2OAutoML object met alle resultaten
+out
+
+## iets overzichtelijker output is de leaderboard
+out@leaderboard
+
+WINNER = out@leader
+WINNER
+
+# De winner is een GBM met 
+# RMSE:  53432.65
+
+
+
+
+
+
+
+
+
+
+
