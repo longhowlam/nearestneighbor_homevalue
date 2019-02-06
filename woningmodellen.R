@@ -1,6 +1,6 @@
 #######################################################
 
-## Wat woningen analyzes
+## Wat analyzes op woning transacties
 
 #### libraries
 library(tidyverse)
@@ -12,7 +12,7 @@ library(plotly)
 library(h2o)
 
 
-### Lees woning transacties in
+### Lees woning transacties in ##########################
 transacties_2018 <- read_csv(
   "2018-woontransacties.csv",
   col_types = cols(
@@ -21,7 +21,7 @@ transacties_2018 <- read_csv(
   )
 )
 
-#### overzichten paar variablen ############################
+#### overzichten van paar variablen ############################
 
 parkeer = transacties_2018 %>%
   group_by(Garage) %>%  
@@ -118,7 +118,7 @@ woonModelData  = woningen %>%
     woningBeschrijving
   )
 
-# simpel lineare modellen
+# simpel lineare regressie modellen ####################################
 
 out1 = lm(Transactieprijs ~ Woonoppervlak, data = woonModelData)
 summary(out1)
@@ -139,16 +139,25 @@ summary(out2)
 outall = lm(Transactieprijs ~ ., data = woonModelData)
 summary(outall)
 
-###### Teveel levels
-woonModelData = woonModelData %>% 
+
+###### Teveel levels in Woningbeschrijving ############################################
+
+woonModelData = woonModelData %>%
+  filter(
+    woningBeschrijving != "BenedenBovenwoning"
+  ) %>% 
   mutate(
     woningBeschrijving = fct_lump(woningBeschrijving, n = 25)
-  )
+  ) 
+ 
+table(woonModelData$woningBeschrijving)
 
 outall = lm(Transactieprijs ~ ., data = woonModelData)
 summary(outall)
 
-##### plaatje van waargenomen prijs tov voorspelde prijs
+
+# visuele beoordeling model ###########################################
+# plaatje van waargenomen prijs tov voorspelde prijs
 
 pred = predict(outall, woonModelData)
 
@@ -158,11 +167,11 @@ woonModelData2$predictie = pred
 ggplot(woonModelData2, aes(Transactieprijs, predictie)) +
   geom_point(alpha = 0.2) + 
   geom_smooth() +
-  labs(title = "waargenomen prijs vs linear model voorspelde prijs")
+  labs(title = "waargenomen prijs vs linear regressie model voorspelde prijs")
 
 ##### plaatje van parameters ###############################################
 
-## woningbeschrijving de level BenedenBovenwoning is weggelaten
+## woningbeschrijving de level Benedenwoning is weggelaten
 coefnamen = names(outall$coefficients)
 
 HuisType = sort(outall$coefficients [ str_detect(coefnamen, "woningBeschrijving")])
@@ -267,7 +276,7 @@ mijnhuis = data.frame(
 
 predict(outRF, mijnhuis)
 
-
+saveRDS(outRF, "huismodelRF.RDs")
 ######## h2o auto ml #########################################
 
 out = h2o.automl(
