@@ -259,8 +259,13 @@ ggplot(TEST, aes(Transactieprijs, predict)) +
 
 rsq(TEST$Transactieprijs, TEST$predict)
 
+### saving model to disk ###################################
+h2omodel = h2o.saveModel(outRF, "huismodel.h2o")
+
 
 ### Voorspel waarde van mijn huis #######################
+
+huismodel = h2o.loadModel(h2omodel)
 
 mijnhuis = data.frame(
   PC2 = "11", 
@@ -274,9 +279,10 @@ mijnhuis = data.frame(
 ) %>% 
   as.h2o
 
-predict(outRF, mijnhuis)
+predict(huismodel, mijnhuis)
 
-saveRDS(outRF, "huismodelRF.RDs")
+
+
 ######## h2o auto ml #########################################
 
 out = h2o.automl(
