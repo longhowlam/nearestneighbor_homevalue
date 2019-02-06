@@ -78,7 +78,11 @@ woningen = woningen %>%
     Perceel < 750,
     Inhoud < 1000
   ) %>% 
-  select(-`Aantal kamers`)
+  select(-`Aantal kamers`) %>% 
+  filter(
+    woningBeschrijving != "BenedenBovenwoning"
+  ) 
+  
 
 ggplot(woningen, aes(ouderdom)) + 
   geom_histogram(col="black", binwidth = 1) +
@@ -143,9 +147,6 @@ summary(outall)
 ###### Teveel levels in Woningbeschrijving ############################################
 
 woonModelData = woonModelData %>%
-  filter(
-    woningBeschrijving != "BenedenBovenwoning"
-  ) %>% 
   mutate(
     woningBeschrijving = fct_lump(woningBeschrijving, n = 25)
   ) 
@@ -279,7 +280,7 @@ mijnhuis = data.frame(
 ) %>% 
   as.h2o
 
-predict(huismodel, mijnhuis)
+out = predict(huismodel, mijnhuis)
 
 
 
@@ -290,7 +291,7 @@ out = h2o.automl(
   y = 1,
   training_frame  = TT[[1]],
   validation_frame = TT[[2]],
-  max_runtime_secs = 180
+  max_runtime_secs = 1800
 )
 
 ## out is nu een zgn H2OAutoML object met alle resultaten
@@ -303,9 +304,22 @@ WINNER = out@leader
 WINNER
 
 # De winner is een GBM met 
-# RMSE:  53432.65
+# RMSE:  53596.61
+# random forest was RMSE:  54643.54
 
 
+TEST2 = h2o.cbind(
+  TT[2], 
+  h2o.predict(WINNER,TT[[2]])
+) %>%
+  as.data.frame()
+
+ggplot(TEST2, aes(Transactieprijs, predict)) +
+  geom_point() + 
+  geom_smooth() +
+  labs(title = "waargenomen prijs vs Random Forest model voorspelde prijs")
+
+rsq(TEST2$Transactieprijs, TEST2$predict)
 
 
 
