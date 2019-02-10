@@ -1,8 +1,8 @@
-#######################################################
+###############################################################################
 
-## Wat analyzes op woning transacties
+## Wat analyzes em eem voorspel model op woningtransacties
 
-#### libraries
+#### benodigde libraries
 library(tidyverse)
 library(sp)
 library(maptools)
@@ -10,9 +10,11 @@ library(leaflet)
 library(colorRamps)
 library(plotly)
 library(h2o)
+library(lime)
 
+h2o.init()
 
-### Lees woning transacties in ##########################
+### Lees woning transacties in ################################################
 transacties_2018 <- read_csv(
   "2018-woontransacties.csv",
   col_types = cols(
@@ -21,13 +23,13 @@ transacties_2018 <- read_csv(
   )
 )
 
-#### overzichten van paar variablen ############################
+#### overzichten van paar variablen ###########################################
 
 parkeer = transacties_2018 %>%
   group_by(Garage) %>%  
   summarise(n=n())
 
-Type = transacties_2018 %>% 
+type = transacties_2018 %>% 
   group_by(`Type woning`) %>% 
   summarise(n=n())
 
@@ -35,7 +37,7 @@ Soort = transacties_2018 %>%
   group_by(`Soort woning`) %>% 
   summarise(n=n())
 
-##### Alleen woningen bekijken ################################
+##### Alleen woningen bekijken ################################################
 
 woningen = transacties_2018 %>% 
   filter(
@@ -43,22 +45,26 @@ woningen = transacties_2018 %>%
   )
 
 ggplot(woningen, aes(Transactieprijs)) + 
-  geom_histogram(col="black", bins=50) +
+  geom_histogram(col="black", bins = 50) +
   labs("Transactieprijs verdeling")
 
 
-#### extremen er uithalen die de boel verstoren ###################
+#### outliers er uithalen die de boel verstoren ###############################
 
 ## op basis van plots
-woningen = woningen %>% filter(Transactieprijs < 2000000)
+woningen = woningen %>% 
+  filter(Transactieprijs < 2000000) %>% 
+  mutate(
+    aantalkamers = `Aantal kamers`,
+  )
 
-ggplot(woningen, aes(Woonoppervlak, `Aantal kamers`)) +
+ggplot(woningen, aes(Woonoppervlak, aantalkamers)) +
   geom_point(alpha = 0.5) 
 
 woningen = woningen %>% 
   filter(
     Woonoppervlak < 700,
-    `Aantal kamers` < 10
+    aantalkamers < 10
   )
 
 woningen = woningen %>% 
@@ -88,10 +94,10 @@ ggplot(woningen, aes(ouderdom)) +
   geom_histogram(col="black", binwidth = 1) +
   labs(title = "ouderdom in jaren")
 
-Type = woningen %>% group_by(woningBeschrijving) %>%  summarise(n=n())
+type = woningen %>% group_by(woningBeschrijving) %>%  summarise(n=n())
 
 
-### check inhoud en perceel
+### nog wat visuals inhoud en perceel #################################################
 
 ggplot(woningen, aes(Perceel)) + 
   geom_histogram(col="black", bins=50) +
@@ -106,7 +112,7 @@ ggplot(woningen, aes(aantalkamers)) +
   labs("Inhoud")
 
 
-#########  voorspelmodel voor prijs ###############################################
+######### voorspelmodel voor prijs ###############################################
 
 woonModelData  = woningen %>% 
   select(
@@ -157,7 +163,7 @@ outall = lm(Transactieprijs ~ ., data = woonModelData)
 summary(outall)
 
 
-# visuele beoordeling model ###########################################
+# Visuele beoordeling model ###########################################
 # plaatje van waargenomen prijs tov voorspelde prijs
 
 pred = predict(outall, woonModelData)
@@ -170,7 +176,7 @@ ggplot(woonModelData2, aes(Transactieprijs, predictie)) +
   geom_smooth() +
   labs(title = "waargenomen prijs vs linear regressie model voorspelde prijs")
 
-##### plaatje van parameters ###############################################
+##### Plaatje van parameters ###############################################
 
 ## woningbeschrijving de level Benedenwoning is weggelaten
 coefnamen = names(outall$coefficients)
@@ -239,7 +245,8 @@ outRF =  h2o.randomForest(
   x = 2:9,
   y = 1,
   training_frame = TT[[1]],
-  validation_frame = TT[[2]]
+  validation_frame = TT[[2]],
+  ntrees = 30
 )
 
 h2o.varimp_plot(outRF)
@@ -261,7 +268,7 @@ ggplot(TEST, aes(Transactieprijs, predict)) +
 rsq(TEST$Transactieprijs, TEST$predict)
 
 ### saving model to disk ###################################
-h2omodel = h2o.saveModel(outRF, "huismodel.h2o")
+h2omodel = h2o.saveModel(outRF, "huismodel_30.h2o")
 
 
 ### Voorspel waarde van mijn huis #######################
@@ -281,8 +288,56 @@ mijnhuis = data.frame(
   as.h2o
 
 out = predict(huismodel, mijnhuis)
+out
 
 
+##### LIME: verklaring voor model voorspelling ########################
+
+huizen.h2o = as.h2o(woonModelData)
+
+### splits in train test
+TT = h2o.splitFrame(huizen.h2o)
+
+outRF =  h2o.randomForest(
+  x = 2:9,
+  y = 1,
+  training_frame = TT[[1]],
+  validation_frame = TT[[2]],
+  ntrees = 30
+)
+
+h2otraindata = TT[[1]] %>% as.data.frame()
+
+explainer = lime(
+  h2otraindata[,2:9],
+  bin_continuous = TRUE,
+  outRF, nbins = 25
+)
+summary(explainer)
+
+
+
+mijnTeVerklarenHuis = data.frame(
+  PC2 = "10", 
+  KoopConditie = "kosten koper", 
+  ouderdom = 8,
+  Woonoppervlak = 125,
+  aantalkamers = 3,
+  Perceel = 100,
+  Inhoud = 140,
+  woningBeschrijving = "EengezinswoningTussenwoning" 
+) 
+  
+explanations = lime::explain(
+  x = mijnTeVerklarenHuis, 
+  explainer,
+  n_features = 100,
+  feature_select = "none",
+  n_permutations = 10000
+  
+)
+
+plot_features(explanations)
 
 ######## h2o auto ml #########################################
 
@@ -322,6 +377,100 @@ ggplot(TEST2, aes(Transactieprijs, predict)) +
 rsq(TEST2$Transactieprijs, TEST2$predict)
 
 
+#################### over bieden?? ###################################################################
+
+## hier is de interactieve plot
+MM
+
+
+## R code om get te maken. Is iets uitgebreider omdat we moeten zoeken waar in welke buurt 
+## Een huis is in amsterdam mbv CBS buurten van Amsterdam
+
+#######  buurten CBS 
+CBSbuurten <- readShapeSpatial("Uitvoer_shape/buurt2018.shp")
+#### Zet coordinatensysteem
+proj4string(CBSbuurten) <- CRS("+init=epsg:28992")
+#### transformeer naar long /lat
+CBSbuurten = spTransform(CBSbuurten, CRS("+proj=longlat +datum=WGS84"))
+
+# focus op amsterdam
+amsterdamPC <- CBSbuurten[str_sub(CBSbuurten$POSTCODE,1,2) == "10" ,]
+plot(amsterdamPC)
+
+amsterdam = woningen %>% 
+  mutate(
+    plaats = stringr::str_to_lower(Plaats),
+    surplus = (Transactieprijs - Vraagprijs)/Vraagprijs
+  ) %>% 
+  filter(
+    plaats == "amsterdam", 
+    !is.na(Longitude),
+    !is.na(Latitude),
+    Vraagprijs > 150000,
+    Garage == "GeenGarage"
+  )
+coordinates(amsterdam) <- ~Longitude + Latitude
+proj4string(amsterdam) = CRS("+proj=longlat +datum=WGS84")
+
+tmp = sp::over(amsterdam, amsterdamPC)
+
+#combineer nu 
+
+amsterdam = bind_cols(
+  amsterdam@data,
+  amsterdam@coords %>% as.data.frame,
+  tmp
+)
+
+############ nu kan je op CBS BU_NAAM aggregegeren
+adampvakkenBU = amsterdam %>% 
+  group_by(BU_NAAM) %>% 
+  summarise(
+    ntrx = n(),
+    overbieden = median(surplus, na.rm = TRUE)
+  )
+
+### join met amsterdamPC zodat je het op een leaflet kan zetten
+
+tmp = amsterdamPC@data
+tmp2 = tmp %>% left_join(adampvakkenBU)
+
+amsterdamPC@data = tmp2
+
+# op een leaflet
+pal <- colorQuantile(
+  palette = "inferno",
+  domain = amsterdamPC$overbieden, n=9)
+
+### op leaflet maar dit is net te veel op buurt niveau
+ptekst = sprintf(
+  "<strong> %s </stong> </br>
+  mediane overbieding %g procent</br>
+  aantal trx %g </br>
+  ", 
+  amsterdamPC$BU_NAAM,
+  round(amsterdamPC$overbieden*100,1),
+  amsterdamPC$ntrx
+)%>% lapply(htmltools::HTML)
+
+
+MM = leaflet(amsterdamPC) %>%
+  addTiles() %>%
+  addPolygons(
+    stroke = TRUE, weight = 1, fillOpacity = 0.55, smoothFactor = 0.15,
+    popup = ptekst,
+    color = ~pal(overbieden),
+    highlightOptions = highlightOptions(
+      color = "white", weight = 2,
+      bringToFront = TRUE),
+    label = ptekst,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto")
+  )
+
+MM
 
 
 
