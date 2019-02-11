@@ -1,6 +1,7 @@
-###############################################################################
-
+######### *** WONINGTRANSACTIES **** ###################################################
+##
 ## Wat analyzes em eem voorspel model op woningtransacties
+##
 
 #### benodigde libraries
 library(tidyverse)
@@ -12,9 +13,12 @@ library(plotly)
 library(h2o)
 library(lime)
 
+## initialiseer h2o
 h2o.init()
 
-### Lees woning transacties in ################################################
+### IMPORT en overzicht data ##################################################
+
+### Lees woning transacties in 
 transacties_2018 <- read_csv(
   "2018-woontransacties.csv",
   col_types = cols(
@@ -23,8 +27,7 @@ transacties_2018 <- read_csv(
   )
 )
 
-#### overzichten van paar variablen ###########################################
-
+### overzichten van paar variablen 
 parkeer = transacties_2018 %>%
   group_by(Garage) %>%  
   summarise(n=n())
@@ -37,7 +40,7 @@ Soort = transacties_2018 %>%
   group_by(`Soort woning`) %>% 
   summarise(n=n())
 
-##### Alleen woningen bekijken ################################################
+##### FILTER Alleen woningen  ################################################
 
 woningen = transacties_2018 %>% 
   filter(
@@ -48,10 +51,10 @@ ggplot(woningen, aes(Transactieprijs)) +
   geom_histogram(col="black", bins = 50) +
   labs("Transactieprijs verdeling")
 
+#### OUTLIERS weghalen #########################################################
 
-#### outliers er uithalen die de boel verstoren ###############################
-
-## op basis van plots
+### outliers er uithalen die de boel verstoren 
+### op basis van plots
 woningen = woningen %>% 
   filter(Transactieprijs < 2000000) %>% 
   mutate(
@@ -97,7 +100,7 @@ ggplot(woningen, aes(ouderdom)) +
 type = woningen %>% group_by(woningBeschrijving) %>%  summarise(n=n())
 
 
-### nog wat visuals inhoud en perceel #################################################
+### nog wat visuals inhoud en perceel 
 
 ggplot(woningen, aes(Perceel)) + 
   geom_histogram(col="black", bins=50) +
@@ -112,7 +115,9 @@ ggplot(woningen, aes(aantalkamers)) +
   labs("Inhoud")
 
 
-######### voorspelmodel voor prijs ###############################################
+######### PREDICTIVE MODEL ########################################################
+
+## voorspelmodel voor prijs 
 
 woonModelData  = woningen %>% 
   select(
@@ -128,8 +133,7 @@ woonModelData  = woningen %>%
     woningBeschrijving
   )
 
-# simpel lineare regressie modellen ####################################
-
+#### simpel lineare regressie modellen 
 out1 = lm(Transactieprijs ~ Woonoppervlak, data = woonModelData)
 summary(out1)
 
@@ -150,7 +154,7 @@ outall = lm(Transactieprijs ~ ., data = woonModelData)
 summary(outall)
 
 
-###### Teveel levels in Woningbeschrijving ############################################
+###### Teveel levels in Woningbeschrijving 
 
 woonModelData = woonModelData %>%
   mutate(
@@ -163,8 +167,8 @@ outall = lm(Transactieprijs ~ ., data = woonModelData)
 summary(outall)
 
 
-# Visuele beoordeling model ###########################################
-# plaatje van waargenomen prijs tov voorspelde prijs
+##### Visuele beoordeling model
+## plaatje van waargenomen prijs tov voorspelde prijs
 
 pred = predict(outall, woonModelData)
 
@@ -176,7 +180,8 @@ ggplot(woonModelData2, aes(Transactieprijs, predictie)) +
   geom_smooth() +
   labs(title = "waargenomen prijs vs linear regressie model voorspelde prijs")
 
-##### Plaatje van parameters ###############################################
+
+##### PLAATJES van parameters ###############################################
 
 ## woningbeschrijving de level Benedenwoning is weggelaten
 coefnamen = names(outall$coefficients)
@@ -228,7 +233,7 @@ pc2_lf
 
 
 
-###########  advanced models met h2o ##########################################
+###########  ADVANCED H2O MODELS  ##########################################
 
 h2o.init()
 
@@ -267,11 +272,11 @@ ggplot(TEST, aes(Transactieprijs, predict)) +
 
 rsq(TEST$Transactieprijs, TEST$predict)
 
-### saving model to disk ###################################
+### saving model to disk for later usage
 h2omodel = h2o.saveModel(outRF, "huismodel_30.h2o")
 
 
-### Voorspel waarde van mijn huis #######################
+### VOORSPEL waarde van mijn huis #######################
 
 huismodel = h2o.loadModel(h2omodel)
 
@@ -339,7 +344,7 @@ explanations = lime::explain(
 
 plot_features(explanations)
 
-######## h2o auto ml #########################################
+######## AUTOML met H2O #########################################
 
 out = h2o.automl(
   x = 2:9,
@@ -375,6 +380,9 @@ ggplot(TEST2, aes(Transactieprijs, predict)) +
   labs(title = "waargenomen prijs vs Random Forest model voorspelde prijs")
 
 rsq(TEST2$Transactieprijs, TEST2$predict)
+
+
+
 
 
 #################### over bieden?? ###################################################################
