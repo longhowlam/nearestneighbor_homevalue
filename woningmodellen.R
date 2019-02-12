@@ -334,19 +334,19 @@ summary(explainer)
 
 
 
-mijnTeVerklarenHuis = data.frame(
-  PC2 = "16", 
-  KoopConditie = "kosten koper", 
-  ouderdom = 8,
-  Woonoppervlak = 125,
-  aantalkamers = 3,
-  Perceel = 100,
-  Inhoud = 140,
-  woningBeschrijving = "EengezinswoningTussenwoning" 
+mijnTeVerklarenHuizen = data.frame(
+  PC2 = c("16", "10", "99", "35"),  
+  KoopConditie = c("kosten koper","kosten koper", "kosten koper", "vrij op naam"), 
+  ouderdom = c(8, 10, 25, 2),
+  Woonoppervlak = c(125, 100, 250, 100),
+  aantalkamers = c(3, 5, 6, 6),
+  Perceel = c(100,120,120,130),
+  Inhoud = c(140, 150, 160, 150),
+  woningBeschrijving = rep("EengezinswoningTussenwoning" ,4)
 ) 
   
 explanations = lime::explain(
-  x = mijnTeVerklarenHuis, 
+  x = mijnTeVerklarenHuizen, 
   explainer,
   n_features = 100,
   feature_select = "none",
