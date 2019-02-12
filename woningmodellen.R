@@ -235,7 +235,6 @@ pc2_lf
 
 ###########  ADVANCED H2O MODELS  ##########################################
 
-h2o.init()
 
 # character data needs to be factor in h2o
 woonModelData = woonModelData %>% mutate_if(is.character, as.factor)
@@ -246,6 +245,7 @@ huizen.h2o = as.h2o(woonModelData)
 ### splits in train test
 TT = h2o.splitFrame(huizen.h2o)
 
+### ** Random forest ################
 outRF =  h2o.randomForest(
   x = 2:9,
   y = 1,
@@ -271,6 +271,18 @@ ggplot(TEST, aes(Transactieprijs, predict)) +
   labs(title = "waargenomen prijs vs Random Forest model voorspelde prijs")
 
 rsq(TEST$Transactieprijs, TEST$predict)
+
+
+### ** Neuraal netwerk ###############
+
+outNN =  h2o.deeplearning(
+  x = 2:9,
+  y = 1,
+  hidden = c(15,15),
+  epochs = 150,
+  training_frame = TT[[1]],
+  validation_frame = TT[[2]]
+)
 
 ### saving model to disk for later usage
 h2omodel = h2o.saveModel(outRF, "huismodel_30.h2o")
@@ -316,14 +328,14 @@ h2otraindata = TT[[1]] %>% as.data.frame()
 explainer = lime(
   h2otraindata[,2:9],
   bin_continuous = TRUE,
-  outRF, nbins = 25
+  outNN, nbins = 25
 )
 summary(explainer)
 
 
 
 mijnTeVerklarenHuis = data.frame(
-  PC2 = "10", 
+  PC2 = "16", 
   KoopConditie = "kosten koper", 
   ouderdom = 8,
   Woonoppervlak = 125,
