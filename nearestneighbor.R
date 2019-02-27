@@ -2,6 +2,8 @@ library(dplyr)
 library(rsample)
 library(reticulate)
 library(ggmap)
+library(osmdata)
+library(sf)
 library(feather)
 #################################################################################################
 
@@ -84,16 +86,44 @@ sample_huizen = postocdes_NL %>%
 amsterdam =  c(4.9036,52.3680)
 groningen = c(6.576000607, 53.2168049)
 baarn = c(5.26, 52.2107)
-52.2107187,5.2836563,16z
+
+############# ggmap met google maps werkt niet meer, je moet je nu registreren
 
 ggmap(
-  get_googlemap(center = baarn, scale=2, zoom=13)
+  get_googlemap(center = amsterdam, scale=2, zoom=13)
 ) + 
 geom_point(
   data=sample_huizen, aes(y=Lat_Postcode6P,x=Long_Postcode6P, color = predictie),
   size = 1.2, alpha = 0.6
 ) +
 scale_colour_gradientn(colours = colorRamps::green2red(20))
+
+######## gebruik stamen of osm maps met de volgende code
+
+amsterdam_map <- get_map(
+  getbb("Amsterdam"), 
+  maptype = "toner-background", 
+  source = "stamen"
+)
+
+projcrs <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
+amsterdam <- st_as_sf(
+  x = sample_huizen,                         
+  coords = c("Long_Postcode6P", "Lat_Postcode6P"),
+  crs = projcrs
+)
+
+#duurt paar minuten voor amsterdam.....
+ggmap(amsterdam_map) +
+  geom_sf(
+    data = amsterdam,
+    inherit.aes = FALSE,
+    aes(colour = predictie),
+    size = 0.5
+  ) +
+  labs(title = "Huisprijzen in Amsterdam", x="",y="")+ 
+  scale_color_gradient(low="blue", high="red")
+
   
 
 feather::write_feather(postocdes_NL[, c(8,9,16)], "postcode_nl.feather")

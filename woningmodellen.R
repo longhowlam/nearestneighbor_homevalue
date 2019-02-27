@@ -293,14 +293,14 @@ h2omodel = h2o.saveModel(outRF, "huismodel_30.h2o")
 huismodel = h2o.loadModel(h2omodel)
 
 mijnhuis = data.frame(
-  PC2 = "11", 
+  PC2 = "39", 
   KoopConditie = "kosten koper", 
-  ouderdom = 8,
-  Woonoppervlak = 125,
-  aantalkamers = 6,
-  Perceel = 100,
-  Inhoud = 140,
-  woningBeschrijving = "EengezinswoningTussenwoning" 
+  ouderdom = 140,
+  Woonoppervlak = 190,
+  aantalkamers = 10,
+  Perceel = 680,
+  Inhoud = 600,
+  woningBeschrijving = "VillaVrijstaandeWoning" 
 ) %>% 
   as.h2o
 
