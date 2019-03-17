@@ -286,7 +286,7 @@ outNN =  h2o.deeplearning(
 
 ### saving model to disk for later usage
 h2omodel = h2o.saveModel(outRF, "huismodel_30.h2o")
-
+h2o.saveMojo(outRF, path = "huismodelmojo")
 
 ### VOORSPEL waarde van mijn huis #######################
 
